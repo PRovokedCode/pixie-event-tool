@@ -1,7 +1,6 @@
-console.log("FILE IS DEFINITELY RUNNING");
+console.log("Scraper process started.");
+
 const xlsx = require("xlsx");
-
-
 require("dotenv").config();
 const axios = require("axios");
 const cheerio = require("cheerio");
@@ -15,62 +14,66 @@ const kafka = new Kafka({
 const producer = kafka.producer();
 
 async function scrapeAndSend(city) {
-  console.log(`\n🚀 Starting scraper for city: ${city}`);
+  console.log(`\nStarting scraper for city: ${city}`);
 
   await producer.connect();
-  console.log("✅ Connected to Kafka.");
+  console.log("Connected to Kafka.");
 
   const normalizedCity = city.toLowerCase();
 
-const bookMyShowURL = `https://in.bookmyshow.com/explore/events-${normalizedCity}?cat=CT`;
-const alleventsURL = `https://allevents.in/${normalizedCity}/all`;
+  const bookMyShowURL =
+    `https://in.bookmyshow.com/explore/events-${normalizedCity}?cat=CT`;
+  const alleventsURL =
+    `https://allevents.in/${normalizedCity}/all`;
 
-// Try BookMyShow first
-let url = bookMyShowURL;
-console.log(`🔎 Trying BookMyShow: ${url}`);
+  let url = bookMyShowURL;
+  console.log(`Attempting BookMyShow: ${url}`);
 
-let response;
+  let response;
 
-try {
-  response = await axios.get(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-    },
-    timeout: 12000,
-  });
-} catch (err) {
-  console.warn("⚠️ BookMyShow blocked — switching to Allevents...");
-  url = alleventsURL;
+  try {
+    response = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+      },
+      timeout: 12000,
+    });
+  } catch (err) {
+    console.warn("BookMyShow blocked. Switching to Allevents.");
+    url = alleventsURL;
 
-  console.log(`🔎 Scraping fallback source: ${url}`);
-  response = await axios.get(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-    },
-    timeout: 20000,
-  });
-}
-
+    console.log(`Scraping fallback source: ${url}`);
+    response = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+      },
+      timeout: 20000,
+    });
+  }
 
   const $ = cheerio.load(response.data);
-
   let events = [];
 
   $(".event-card, .event-item, .event-card-list").each((i, el) => {
-
     const name =
-      $(el).find(".event-title, .title, h3, h2").first().text().trim() ||
-      "Unknown Event";
+      $(el).find(".event-title, .title, h3, h2")
+        .first()
+        .text()
+        .trim() || "Unknown Event";
 
     const venue =
-      $(el).find(".venue-name, .venue, .location").first().text().trim() ||
-      "Unknown Venue";
+      $(el).find(".venue-name, .venue, .location")
+        .first()
+        .text()
+        .trim() || "Unknown Venue";
 
     const date =
-      $(el).find(".date, .event-date, .eventDate").first().text().trim() ||
-      "TBD";
+      $(el).find(".date, .event-date, .eventDate")
+        .first()
+        .text()
+        .trim() || "TBD";
 
     const link = $(el).find("a").attr("href");
 
@@ -90,7 +93,7 @@ try {
     }
   });
 
-  console.log(`📦 Found ${events.length} events.`);
+  console.log(`Found ${events.length} events.`);
 
   for (let event of events) {
     await producer.send({
@@ -99,28 +102,28 @@ try {
     });
   }
 
-  console.log(`✅ Sent ${events.length} events to Kafka topic: events.raw`);
+  console.log(
+    `Sent ${events.length} events to Kafka topic: events.raw`
+  );
 
-// ---- CREATE CITY-SPECIFIC EXCEL FILE (PREDICTABLE NAME) ----
-const filename = `events-${city}.xlsx`;
+  // Create predictable city-specific Excel file
+  const filename = `events-${city}.xlsx`;
 
-const wb = xlsx.utils.book_new();
-const ws = xlsx.utils.json_to_sheet(events);
-xlsx.utils.book_append_sheet(wb, ws, "Events");
-xlsx.writeFile(wb, filename);
+  const wb = xlsx.utils.book_new();
+  const ws = xlsx.utils.json_to_sheet(events);
+  xlsx.utils.book_append_sheet(wb, ws, "Events");
+  xlsx.writeFile(wb, filename);
 
-console.log(`📁 Created Excel file: ${filename}`);
+  console.log(`Created Excel file: ${filename}`);
 
-await producer.disconnect();
-
-  console.log("🔌 Producer disconnected.\n");
+  await producer.disconnect();
+  console.log("Producer disconnected.");
 }
-
 
 async function scrapeDistrict(city) {
   const districtURL = `https://district.in/events/${city}`;
 
-  console.log(`🔎 Scraping District: ${districtURL}`);
+  console.log(`Attempting District scrape: ${districtURL}`);
 
   try {
     const response = await axios.get(districtURL, {
@@ -154,13 +157,15 @@ async function scrapeDistrict(city) {
       });
     });
 
-    console.log("✅ District events sent to Kafka.");
+    console.log("District events sent to Kafka.");
   } catch (err) {
-    console.warn("⚠️ District scrape failed:", err.message);
+    console.warn(
+      "District scrape skipped due to access restrictions."
+    );
   }
 }
 
-// Read city from command line; default to mumbai if none is provided
+// Read city from command line; default to mumbai
 const city = process.argv[2] || "mumbai";
 
 (async () => {
@@ -168,9 +173,6 @@ const city = process.argv[2] || "mumbai";
     await scrapeAndSend(city);
     await scrapeDistrict(city);
   } catch (err) {
-    console.error("❌ Top-level error:", err.message);
+    console.error("Top-level error:", err.message);
   }
 })();
-
-
-

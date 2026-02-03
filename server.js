@@ -1,5 +1,4 @@
 const fs = require("fs");
-
 const express = require("express");
 const { exec } = require("child_process");
 const path = require("path");
@@ -13,25 +12,29 @@ app.use(express.static("public"));
 app.get("/run-scraper", (req, res) => {
   const city = req.query.city || "mumbai";
 
-  console.log(`🖱️ UI triggered scrape for: ${city}`);
+  console.log(`UI triggered scrape for city: ${city}`);
 
   exec(`node scraper.js ${city}`, (error, stdout, stderr) => {
     if (error) {
-      console.error("Scraper error:", error.message);
-      return res.status(500).send("Scraping failed");
+      console.error("Scraper execution failed:", error.message);
+      return res.status(500).send("Scraping failed. Please check server logs.");
     }
 
-    res.send("Scraping completed. Check Excel file.");
+    console.log("Scraper completed successfully.");
+    res.send("Scraping completed. You may now download the Excel file.");
   });
 });
 
-// API to download Excel file
+// API to download city-specific Excel file
 app.get("/download", (req, res) => {
   const city = req.query.city || "mumbai";
   const filePath = path.join(__dirname, `events-${city}.xlsx`);
 
   if (!fs.existsSync(filePath)) {
-    return res.status(404).send("File not found. Please run Fetch Events first.");
+    console.error(`Requested file not found: ${filePath}`);
+    return res.status(404).send(
+      "File not found. Please run 'Fetch Events' first."
+    );
   }
 
   res.setHeader(
@@ -39,11 +42,11 @@ app.get("/download", (req, res) => {
     `attachment; filename="events-${city}.xlsx"`
   );
 
+  console.log(`Sending file to client: events-${city}.xlsx`);
   res.download(filePath);
 });
 
-
-
+// Start server
 app.listen(PORT, () => {
-  console.log(`🌐 Web app running at http://localhost:${PORT}`);
+  console.log(`Web application running at http://localhost:${PORT}`);
 });

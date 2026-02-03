@@ -14,17 +14,17 @@ function getFileForCity(city) {
 }
 
 async function runConsumer() {
-  console.log("🔌 Connecting to Kafka consumer...");
+  console.log("Connecting to Kafka consumer...");
   await consumer.connect();
 
   await consumer.subscribe({
     topic: "events.raw",
-    fromBeginning: false,   // IMPORTANT: only process new events
+    fromBeginning: false, // Only process new events
   });
 
-  console.log("📡 Listening to events.raw...");
+  console.log("Listening to topic: events.raw");
 
-  // We keep only ONE map at a time (current city run)
+  // Track only the current city run
   let currentCity = null;
   let eventMap = new Map();
 
@@ -33,32 +33,34 @@ async function runConsumer() {
       const event = JSON.parse(message.value.toString());
       const city = event.city.toLowerCase();
 
-      // If user starts a NEW city run, reset everything
+      // If a new city run begins, reset state
       if (currentCity !== city) {
-        console.log(`🆕 New city detected: ${city} — starting fresh file`);
+        console.log(`New city detected: ${city}. Starting fresh file.`);
         currentCity = city;
-        eventMap = new Map(); // clear old data
+        eventMap = new Map();
       }
 
-      console.log(`📥 Received (${city}): ${event.eventName}`);
+      console.log(`Received event for ${city}: ${event.eventName}`);
 
-      // Always mark this event as Upcoming
+      // Normalize status
       event.status = "Upcoming";
       event.lastSeenAt = new Date().toISOString();
 
-      // Deduplicate only within THIS city run
+      // Deduplicate within this run
       eventMap.set(event.url, event);
 
-      // Convert to array and write a fresh file
+      // Write fresh city-specific Excel file
       const updatedData = Array.from(eventMap.values());
-      const FILE = getFileForCity(city);
+      const filename = getFileForCity(city);
 
-      const wb = xlsx.utils.book_new();
-      const ws = xlsx.utils.json_to_sheet(updatedData);
-      xlsx.utils.book_append_sheet(wb, ws, "Events");
-      xlsx.writeFile(wb, FILE);
+      const workbook = xlsx.utils.book_new();
+      const worksheet = xlsx.utils.json_to_sheet(updatedData);
+      xlsx.utils.book_append_sheet(workbook, worksheet, "Events");
+      xlsx.writeFile(workbook, filename);
 
-      console.log(`💾 Created fresh file: ${FILE} (${updatedData.length} events)`);
+      console.log(
+        `Created fresh file: ${filename} with ${updatedData.length} events`
+      );
     },
   });
 }

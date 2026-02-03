@@ -1,4 +1,6 @@
 console.log("FILE IS DEFINITELY RUNNING");
+const xlsx = require("xlsx");
+
 
 require("dotenv").config();
 const axios = require("axios");
@@ -98,7 +100,19 @@ try {
   }
 
   console.log(`✅ Sent ${events.length} events to Kafka topic: events.raw`);
-  await producer.disconnect();
+
+// ---- CREATE CITY-SPECIFIC EXCEL FILE (PREDICTABLE NAME) ----
+const filename = `events-${city}.xlsx`;
+
+const wb = xlsx.utils.book_new();
+const ws = xlsx.utils.json_to_sheet(events);
+xlsx.utils.book_append_sheet(wb, ws, "Events");
+xlsx.writeFile(wb, filename);
+
+console.log(`📁 Created Excel file: ${filename}`);
+
+await producer.disconnect();
+
   console.log("🔌 Producer disconnected.\n");
 }
 
@@ -146,13 +160,17 @@ async function scrapeDistrict(city) {
   }
 }
 
+// Read city from command line; default to mumbai if none is provided
+const city = process.argv[2] || "mumbai";
+
 (async () => {
   try {
-    await scrapeAndSend("mumbai");
-    await scrapeDistrict("mumbai");
+    await scrapeAndSend(city);
+    await scrapeDistrict(city);
   } catch (err) {
     console.error("❌ Top-level error:", err.message);
   }
 })();
+
 
 

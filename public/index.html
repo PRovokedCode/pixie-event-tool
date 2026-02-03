@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pixie Event Tool</title>
+  <style>
+    body { font-family: Arial; padding: 40px; }
+    select, button { padding: 10px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>🎪 Pixie Event Discovery Tool</h1>
+
+  <label>Select City:</label><br>
+  <select id="city">
+    <option value="mumbai">Mumbai</option>
+    <option value="delhi">Delhi</option>
+    <option value="pune">Pune</option>
+    <option value="bangalore">Bangalore</option>
+  </select>
+
+  <br><br>
+
+  <button onclick="runScraper()">Fetch Events</button>
+  <button onclick="downloadExcel()">Download Excel</button>
+
+  <p id="status"></p>
+
+  <script>
+    function runScraper() {
+      const city = document.getElementById("city").value;
+      document.getElementById("status").innerText = "Running scraper...";
+
+      fetch(`/run-scraper?city=${city}`)
+        .then(res => res.text())
+        .then(msg => {
+          document.getElementById("status").innerText = msg;
+        });
+    }
+
+    function downloadExcel() {
+      const city = document.getElementById("city").value;
+      window.location.href = `/download?city=${city}`;
+    }
+  </script>
+
+</body>
+</html>

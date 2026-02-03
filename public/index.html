@@ -1,41 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pixie Event Tool</title>
-  <style>
-    body { font-family: Arial; padding: 40px; }
-    select, button { padding: 10px; margin: 10px 0; }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
-  <h1>🎪 Pixie Event Discovery Tool</h1>
+  <div class="cursor-glow" id="glow"></div>
 
-  <label>Select City:</label><br>
-  <select id="city">
-    <option value="mumbai">Mumbai</option>
-    <option value="delhi">Delhi</option>
-    <option value="pune">Pune</option>
-    <option value="bangalore">Bangalore</option>
-  </select>
+  <div class="container">
+    <h2>Pixie Event Tool</h2>
 
-  <br><br>
+    <div class="dropdown-wrapper">
+      <select id="city">
+        <option value="mumbai">Mumbai</option>
+        <option value="delhi">Delhi</option>
+        <option value="bangalore">Bangalore</option>
+        <option value="pune">Pune</option>
+        <option value="chennai">Chennai</option>
+        <option value="hyderabad">Hyderabad</option>
+        <option value="kolkata">Kolkata</option>
+      </select>
+    </div>
 
-  <button onclick="runScraper()">Fetch Events</button>
-  <button onclick="downloadExcel()">Download Excel</button>
+    <button class="btn primary" onclick="runScraper()">
+      Fetch Events
+    </button>
 
-  <p id="status"></p>
+    <button class="btn secondary" onclick="downloadExcel()">
+      Download Excel
+    </button>
+
+    <p class="status" id="status"></p>
+    <p class="hint">
+      Select a city → Fetch → then Download
+    </p>
+  </div>
 
   <script>
-    function runScraper() {
-      const city = document.getElementById("city").value;
-      document.getElementById("status").innerText = "Running scraper...";
+    const glow = document.getElementById("glow");
 
-      fetch(`/run-scraper?city=${city}`)
-        .then(res => res.text())
-        .then(msg => {
-          document.getElementById("status").innerText = msg;
-        });
+    document.addEventListener("mousemove", (e) => {
+      glow.style.left = e.clientX + "px";
+      glow.style.top = e.clientY + "px";
+    });
+
+    async function runScraper() {
+      const city = document.getElementById("city").value;
+      document.getElementById("status").innerText =
+        "Scraping in progress... please wait";
+
+      try {
+        const res = await fetch(`/run-scraper?city=${city}`);
+        const text = await res.text();
+        document.getElementById("status").innerText = text;
+      } catch (err) {
+        document.getElementById("status").innerText =
+          "Error running scraper";
+      }
     }
 
     function downloadExcel() {
@@ -43,6 +68,5 @@
       window.location.href = `/download?city=${city}`;
     }
   </script>
-
 </body>
 </html>
